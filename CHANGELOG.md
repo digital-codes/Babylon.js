@@ -1,5 +1,19 @@
 # Changelog
 
+## 8.31.4
+
+### Core
+
+- Fix: use camera world position for floating origin - by [BarthPaleologue](https://github.com/BarthPaleologue) ([#17301](https://github.com/BabylonJS/Babylon.js/pull/17301))
+
+### Loaders
+
+- Gltf: unofficial _COLOR_0 for EXT_mesh_gpu_instancing - by [kzhsw](https://github.com/kzhsw) ([#17264](https://github.com/BabylonJS/Babylon.js/pull/17264))
+
+### Serializers
+
+- Gltf: unofficial _COLOR_0 for EXT_mesh_gpu_instancing - by [kzhsw](https://github.com/kzhsw) ([#17264](https://github.com/BabylonJS/Babylon.js/pull/17264))
+
 ## 8.31.3
 
 ### Core
@@ -5329,6 +5343,21 @@
 
 - Mesh extrusion: Add an optional scaleVectorFunction parameter to ExtrudeShapeCustom - by [Popov72](https://github.com/Popov72) ([#17752](https://github.com/BabylonJS/Babylon.js/pull/17752))
 
+## 8.51.0
+
+### Core
+
+- Simplify handedness calculation - by [georginahalpern](https://github.com/georginahalpern) ([#17891](https://github.com/BabylonJS/Babylon.js/pull/17891))
+- Inspector v2: Settings service cleanup - by [ryantrem](https://github.com/ryantrem) ([#17884](https://github.com/BabylonJS/Babylon.js/pull/17884))
+- Add solid color Gaussian splatting material plugin - by [spsDrop](https://github.com/spsDrop) ([#17880](https://github.com/BabylonJS/Babylon.js/pull/17880))
+- Fix double-count bug - by [alexchuber](https://github.com/alexchuber) ([#17886](https://github.com/BabylonJS/Babylon.js/pull/17886))
+- Stop and cleanup underlying WebAudio microphone stream node on dispose - [_Bug Fix_] by [docEdub](https://github.com/docEdub) ([#17882](https://github.com/BabylonJS/Babylon.js/pull/17882))
+- Gaussian Splatting raise limit for number of compound splat parts - by [spsDrop](https://github.com/spsDrop) ([#17872](https://github.com/BabylonJS/Babylon.js/pull/17872))
+
+### Serializers
+
+- 3MF Support - [_New Feature_] by [pandaGaume](https://github.com/pandaGaume) ([#17858](https://github.com/BabylonJS/Babylon.js/pull/17858))
+
 ## 8.50.5
 
 ### Core
@@ -6202,20 +6231,6 @@
 - Ortho projection support for GS - by [CedricGuillemet](https://github.com/CedricGuillemet) ([#17307](https://github.com/BabylonJS/Babylon.js/pull/17307))
 
 ## 8.32.0
-
-## 8.31.4
-
-### Core
-
-- Fix: use camera world position for floating origin - by [BarthPaleologue](https://github.com/BarthPaleologue) ([#17301](https://github.com/BabylonJS/Babylon.js/pull/17301))
-
-### Loaders
-
-- Gltf: unofficial _COLOR_0 for EXT_mesh_gpu_instancing - by [kzhsw](https://github.com/kzhsw) ([#17264](https://github.com/BabylonJS/Babylon.js/pull/17264))
-
-### Serializers
-
-- Gltf: unofficial _COLOR_0 for EXT_mesh_gpu_instancing - by [kzhsw](https://github.com/kzhsw) ([#17264](https://github.com/BabylonJS/Babylon.js/pull/17264))
 
 ## 6.15.0
 
