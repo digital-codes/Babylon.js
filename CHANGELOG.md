@@ -1,5 +1,7 @@
 # Changelog
 
+## 8.32.0
+
 ## 8.31.4
 
 ### Core
@@ -5343,6 +5345,14 @@
 
 - Mesh extrusion: Add an optional scaleVectorFunction parameter to ExtrudeShapeCustom - by [Popov72](https://github.com/Popov72) ([#17752](https://github.com/BabylonJS/Babylon.js/pull/17752))
 
+## 8.51.1
+
+### Core
+
+- Havok + FloatingOrigin: Dynamic re-regioning - [_New Feature_] by [georginahalpern](https://github.com/georginahalpern) ([#17892](https://github.com/BabylonJS/Babylon.js/pull/17892))
+- Animations: add support for animation retargeting - [_New Feature_] by [Popov72](https://github.com/Popov72) ([#17885](https://github.com/BabylonJS/Babylon.js/pull/17885))
+- Gaussian Splatting GPU Picking - by [spsDrop](https://github.com/spsDrop) ([#17887](https://github.com/BabylonJS/Babylon.js/pull/17887))
+
 ## 8.51.0
 
 ### Core
@@ -6229,8 +6239,6 @@
 ### Core
 
 - Ortho projection support for GS - by [CedricGuillemet](https://github.com/CedricGuillemet) ([#17307](https://github.com/BabylonJS/Babylon.js/pull/17307))
-
-## 8.32.0
 
 ## 6.15.0
 
