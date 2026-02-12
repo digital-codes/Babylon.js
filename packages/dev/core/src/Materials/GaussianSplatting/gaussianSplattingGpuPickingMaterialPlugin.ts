@@ -4,7 +4,6 @@ import type { AbstractEngine } from "../../Engines/abstractEngine";
 import type { SubMesh } from "../../Meshes/subMesh";
 import type { UniformBuffer } from "../uniformBuffer";
 import type { MaterialDefines } from "../materialDefines";
-import { Color3 } from "../../Maths/math.color";
 import { MaterialPluginBase } from "../materialPluginBase";
 import { ShaderLanguage } from "../shaderLanguage";
 import { RegisterClass } from "../../Misc/typeStore";
@@ -12,43 +11,83 @@ import { GaussianSplattingMaxPartCount } from "./gaussianSplattingMaterial";
 import type { GaussianSplattingMaterial } from "./gaussianSplattingMaterial";
 
 /**
- * Plugin for GaussianSplattingMaterial that replaces per-splat colors with a
- * solid color per compound-mesh part. Each part index maps to a single Color3
- * value, which is looked up in a uniform array in the fragment shader.
+ * Plugin for GaussianSplattingMaterial that replaces per-splat color output with
+ * a pre-computed picking color for GPU-based hit testing.
+ *
+ * The picking color is computed on the CPU by encoding a 24-bit picking ID as RGB
+ * (matching the readback decoding in GPUPicker).
+ * @experimental
  */
-export class GaussianSplattingSolidColorMaterialPlugin extends MaterialPluginBase {
-    private _partColors: Color3[];
+export class GaussianSplattingGpuPickingMaterialPlugin extends MaterialPluginBase {
+    private _pickingColor: [number, number, number] = [0, 0, 0];
+    private _isCompound: boolean = false;
+    private _partPickingColors: number[] = [];
     private _maxPartCount: number;
 
     /**
-     * Creates a new GaussianSplatSolidColorPlugin.
+     * Creates a new GaussianSplattingGpuPickingMaterialPlugin.
      * @param material The GaussianSplattingMaterial to attach the plugin to.
-     * @param partColors A map from part index to the solid Color3 for that part.
-     * @param maxPartCount The maximum number of parts supported. This determines the size of the uniform array.
+     * @param maxPartCount The maximum number of parts supported for compound meshes.
      */
-    constructor(material: GaussianSplattingMaterial, partColors: Color3[], maxPartCount = GaussianSplattingMaxPartCount) {
-        super(material, "GaussianSplatSolidColor", 200);
+    constructor(material: GaussianSplattingMaterial, maxPartCount = GaussianSplattingMaxPartCount) {
+        super(material, "GaussianSplatGpuPicking", 200);
 
-        this._partColors = partColors;
         this._maxPartCount = maxPartCount;
         this._enable(true);
     }
 
     /**
-     * Updates the part colors dynamically.
-     * @param partColors A map from part index to the solid Color3 for that part.
+     * Encodes a 24-bit picking ID into normalized RGB components.
+     * @param id The picking ID to encode
+     * @returns A tuple [r, g, b] with values in [0, 1]
      */
-    public updatePartColors(partColors: Color3[]): void {
-        this._partColors = partColors;
+    public static EncodeIdToColor(id: number): [number, number, number] {
+        return [((id >> 16) & 0xff) / 255, ((id >> 8) & 0xff) / 255, (id & 0xff) / 255];
     }
 
-    // --- Plugin overrides ---
+    /**
+     * Sets the picking color for a non-compound mesh from a picking ID.
+     * The ID is encoded into an RGB color on the CPU.
+     * @param id The 24-bit picking ID.
+     */
+    public set meshId(id: number) {
+        this._pickingColor = GaussianSplattingGpuPickingMaterialPlugin.EncodeIdToColor(id);
+    }
+
+    /**
+     * Sets whether this material is for a compound mesh with per-part picking.
+     */
+    public set isCompound(value: boolean) {
+        this._isCompound = value;
+        this.markAllDefinesAsDirty();
+    }
+
+    /**
+     * Gets whether this material is for a compound mesh with per-part picking.
+     */
+    public get isCompound(): boolean {
+        return this._isCompound;
+    }
+
+    /**
+     * Sets the per-part picking colors from an array of picking IDs.
+     * Each ID is encoded into an RGB color on the CPU.
+     * @param ids Array mapping part index to picking ID.
+     */
+    public set partMeshIds(ids: number[]) {
+        const colors: number[] = [];
+        for (let i = 0; i < this._maxPartCount; i++) {
+            const c = i < ids.length ? GaussianSplattingGpuPickingMaterialPlugin.EncodeIdToColor(ids[i]) : ([0, 0, 0] as [number, number, number]);
+            colors.push(c[0], c[1], c[2]);
+        }
+        this._partPickingColors = colors;
+    }
 
     /**
      * @returns the class name
      */
     public override getClassName(): string {
-        return "GaussianSplattingSolidColorMaterialPlugin";
+        return "GaussianSplattingGpuPickingMaterialPlugin";
     }
 
     /**
@@ -79,22 +118,20 @@ export class GaussianSplattingSolidColorMaterialPlugin extends MaterialPluginBas
     }
 
     /**
-     * Returns custom shader code fragments to inject solid-color rendering.
+     * Returns custom shader code to inject GPU picking color output.
      *
      * @param shaderType "vertex" or "fragment"
      * @param shaderLanguage the shader language to use (default: GLSL)
      * @returns null or a map of injection point names to code strings
      */
     public override getCustomCode(shaderType: string, shaderLanguage = ShaderLanguage.GLSL): Nullable<{ [pointName: string]: string }> {
-        const maxPartCount = this._maxPartCount ?? GaussianSplattingMaxPartCount;
-
         if (shaderLanguage === ShaderLanguage.WGSL) {
-            return this._getCustomCodeWGSL(shaderType, maxPartCount);
+            return this._getCustomCodeWGSL(shaderType);
         }
-        return this._getCustomCodeGLSL(shaderType, maxPartCount);
+        return this._getCustomCodeGLSL(shaderType);
     }
 
-    private _getCustomCodeGLSL(shaderType: string, maxPartCount: number): Nullable<{ [pointName: string]: string }> {
+    private _getCustomCodeGLSL(shaderType: string): Nullable<{ [pointName: string]: string }> {
         if (shaderType === "vertex") {
             return {
                 CUSTOM_VERTEX_DEFINITIONS: `varying float vPartIndex;`,
@@ -110,18 +147,25 @@ export class GaussianSplattingSolidColorMaterialPlugin extends MaterialPluginBas
             return {
                 CUSTOM_FRAGMENT_DEFINITIONS: `
 varying float vPartIndex;
-uniform vec3 partColors[${maxPartCount}];
+#if IS_COMPOUND
+uniform vec3 partPickingColors[${this._maxPartCount}];
+#else
+uniform vec3 pickingColor;
+#endif
                 `,
                 CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `
-int partIdx = int(vPartIndex + 0.5);
-finalColor = vec4(partColors[partIdx], finalColor.w);
+#if IS_COMPOUND
+    finalColor = vec4(partPickingColors[int(vPartIndex + 0.5)], 1.0);
+#else
+    finalColor = vec4(pickingColor, 1.0);
+#endif
                 `,
             };
         }
         return null;
     }
 
-    private _getCustomCodeWGSL(shaderType: string, maxPartCount: number): Nullable<{ [pointName: string]: string }> {
+    private _getCustomCodeWGSL(shaderType: string): Nullable<{ [pointName: string]: string }> {
         if (shaderType === "vertex") {
             return {
                 CUSTOM_VERTEX_DEFINITIONS: `varying vPartIndex: f32;`,
@@ -137,11 +181,18 @@ finalColor = vec4(partColors[partIdx], finalColor.w);
             return {
                 CUSTOM_FRAGMENT_DEFINITIONS: `
 varying vPartIndex: f32;
-uniform partColors: array<vec3f, ${maxPartCount}>;
+#if IS_COMPOUND
+uniform partPickingColors: array<vec3f, ${this._maxPartCount}>;
+#else
+uniform pickingColor: vec3f;
+#endif
                 `,
                 CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `
-var partIdx: i32 = i32(fragmentInputs.vPartIndex + 0.5);
-finalColor = vec4f(uniforms.partColors[partIdx], finalColor.w);
+#if IS_COMPOUND
+    finalColor = vec4f(uniforms.partPickingColors[i32(fragmentInputs.vPartIndex + 0.5)], 1.0);
+#else
+    finalColor = vec4f(uniforms.pickingColor, 1.0);
+#endif
                 `,
             };
         }
@@ -149,8 +200,7 @@ finalColor = vec4f(uniforms.partColors[partIdx], finalColor.w);
     }
 
     /**
-     * Registers the `partColors` uniform with the engine so that
-     * the Effect can resolve its location.
+     * Registers the picking uniforms with the engine.
      * @returns uniform descriptions
      */
     public override getUniforms(): {
@@ -160,12 +210,12 @@ finalColor = vec4f(uniforms.partColors[partIdx], finalColor.w);
         externalUniforms?: string[];
     } {
         return {
-            externalUniforms: ["partColors"],
+            externalUniforms: ["pickingColor", "partPickingColors"],
         };
     }
 
     /**
-     * Binds the `partColors` uniform array each frame.
+     * Binds the picking color uniform(s) each frame.
      * @param _uniformBuffer the uniform buffer (unused — we bind directly on the effect)
      * @param _scene the current scene
      * @param _engine the current engine
@@ -177,14 +227,12 @@ finalColor = vec4f(uniforms.partColors[partIdx], finalColor.w);
             return;
         }
 
-        const colorArray: number[] = [];
-        for (let i = 0; i < this._maxPartCount; i++) {
-            const color = this._partColors[i] ?? new Color3(0, 0, 0);
-            colorArray.push(color.r, color.g, color.b);
+        if (this._isCompound) {
+            effect.setArray3("partPickingColors", this._partPickingColors);
+        } else {
+            effect.setFloat3("pickingColor", this._pickingColor[0], this._pickingColor[1], this._pickingColor[2]);
         }
-
-        effect.setArray3("partColors", colorArray);
     }
 }
 
-RegisterClass("BABYLON.GaussianSplattingSolidColorMaterialPlugin", GaussianSplattingSolidColorMaterialPlugin);
+RegisterClass("BABYLON.GaussianSplattingGpuPickingMaterialPlugin", GaussianSplattingGpuPickingMaterialPlugin);

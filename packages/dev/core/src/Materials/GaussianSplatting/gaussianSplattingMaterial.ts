@@ -59,9 +59,10 @@ class GaussianSplattingMaterialDefines extends MaterialDefines {
 
     /**
      * Constructor of the defines.
+     * @param externalProperties External properties (e.g. from material plugins) to add to the defines.
      */
-    constructor() {
-        super();
+    constructor(externalProperties?: { [name: string]: { type: string; default: any } }) {
+        super(externalProperties);
         this.rebuild();
     }
 }
@@ -185,7 +186,7 @@ export class GaussianSplattingMaterial extends PushMaterial {
 
         if (!subMesh.materialDefines) {
             this._callbackPluginEventGeneric(MaterialPluginEvent.GetDefineNames, this._eventInfo);
-            defines = subMesh.materialDefines = new GaussianSplattingMaterialDefines();
+            defines = subMesh.materialDefines = new GaussianSplattingMaterialDefines(this._eventInfo.defineNames);
         }
 
         const scene = this.getScene();
@@ -584,6 +585,7 @@ export class GaussianSplattingMaterial extends PushMaterial {
         });
         return shaderMaterial;
     }
+
     protected static _MakeGaussianSplattingShadowDepthWrapper(scene: Scene, shaderLanguage: ShaderLanguage): ShadowDepthWrapper {
         const shaderMaterial = new ShaderMaterial(
             "gaussianSplattingDepth",
