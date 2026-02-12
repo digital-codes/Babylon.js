@@ -39,6 +39,9 @@ export interface IGizmoService extends IService<typeof GizmoServiceIdentity> {
 
     coordinatesMode: GizmoCoordinatesMode;
     readonly onCoordinatesModeChanged: IReadonlyObservable<void>;
+
+    gizmoCamera: Camera | null;
+    readonly onCameraGizmoChanged: IReadonlyObservable<void>;
 }
 
 export const GizmoServiceDefinition: ServiceDefinition<[IGizmoService], [ISceneContext, ISelectionService]> = {
@@ -138,6 +141,9 @@ export const GizmoServiceDefinition: ServiceDefinition<[IGizmoService], [ISceneC
 
         let coordinatesModeState: GizmoCoordinatesMode = GizmoCoordinatesMode.Local;
         const coordinatesModeObservable = new Observable<void>();
+
+        let cameraGizmoState: Camera | null = null;
+        const cameraGizmoObservable = new Observable<void>();
 
         let currentGizmoManager: Nullable<GizmoManager> = null;
         let currentUtilityLayerRef: Nullable<Reference<UtilityLayerRenderer>> = null;
@@ -309,12 +315,34 @@ export const GizmoServiceDefinition: ServiceDefinition<[IGizmoService], [ISceneC
             },
             onCoordinatesModeChanged: coordinatesModeObservable as IReadonlyObservable<void>,
 
+            get gizmoCamera() {
+                return cameraGizmoState;
+            },
+            set gizmoCamera(camera: Camera | null) {
+                const currentScene = sceneContext.currentScene;
+                if (!currentScene || camera === cameraGizmoState) {
+                    return;
+                }
+
+                cameraGizmoState = camera;
+
+                const utilityLayerRef = getUtilityLayer(currentScene);
+                const keepDepthUtilityLayerRef = getUtilityLayer(currentScene, "keepDepth");
+
+                utilityLayerRef.value.setRenderCamera(camera);
+                keepDepthUtilityLayerRef.value.setRenderCamera(camera);
+
+                cameraGizmoObservable.notifyObservers();
+            },
+            onCameraGizmoChanged: cameraGizmoObservable as IReadonlyObservable<void>,
+
             dispose: () => {
                 sceneObserver.remove();
                 selectionObserver.remove();
                 destroyGizmoManager();
                 gizmoModeObservable.clear();
                 coordinatesModeObservable.clear();
+                cameraGizmoObservable.clear();
             },
         };
     },
